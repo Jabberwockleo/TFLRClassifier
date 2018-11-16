@@ -24,7 +24,7 @@ class TFLRClassifier(object):
     """
         Logistic Regressor
     """
-    def __init__(self, feature_num=None, batch_size=-1, input_type='dense',
+    def __init__(self, feature_num=None, l2_weight=0.01, batch_size=-1, input_type='dense',
         learning_rate=1e-2, epoch_num=10, random_seed=None, session_config=None,
         log_dir='/tmp/tflog/', chkpt_dir='/tmp/tfchpt/', print_step=-1):
         """
@@ -36,6 +36,7 @@ class TFLRClassifier(object):
                 random_seed: random seed
         """
         self.feature_num = feature_num
+        self.l2_weight = l2_weight
         self.batch_size = batch_size
         self.input_type = input_type
         self.learning_rate = learning_rate
@@ -210,7 +211,7 @@ class TFLRClassifier(object):
             # loss function
             self.loss = tf.reduce_mean(
                 tf.nn.sigmoid_cross_entropy_with_logits(
-                logits=self.logits, labels=self.y))
+                logits=self.logits, labels=self.y)) + self.l2_weight * tf.nn.l2_loss(self.weights)
 
             # training optimizer
             self.train_op = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)

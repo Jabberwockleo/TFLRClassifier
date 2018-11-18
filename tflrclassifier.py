@@ -23,6 +23,7 @@ from scipy import sparse
 class TFLRClassifier(object):
     """
         Logistic Regressor
+        Compatible with sklearn APIs: X is dense matrix or scipy.sparse.csr_matrix
     """
     def __init__(self, feature_num=None, l2_weight=0.01, batch_size=-1, input_type='dense',
         learning_rate=1e-2, epoch_num=10, random_seed=None, session_config=None,
@@ -46,7 +47,7 @@ class TFLRClassifier(object):
         self.chkpt_dir = chkpt_dir
         self.session_config = session_config
         self.print_step = print_step
-    
+
     def export_model(self, export_dir, input_type='dense'):
         """
             Export pb model
@@ -79,7 +80,7 @@ class TFLRClassifier(object):
                             outputs= {"logits": tf.saved_model.utils.build_tensor_info(self.logits)})
                         })
                 builder.save(as_text=False)
-    
+
     def decision_function_imported(self, X, import_dir, input_type='dense'):
         """
             Decision function by imported Pb model
@@ -115,7 +116,7 @@ class TFLRClassifier(object):
                 fd[X_values_tensor] = X_sparse.data.astype(np.float32)
                 fd[X_shape_tensor] = np.array(X_sparse.shape).astype(np.int64)
                 return sess.run(logits_tensor, feed_dict=fd)
-    
+
     def load_checkpoint(self, feature_num, chkpt_dir):
         """
             Load model from checkpoint
@@ -124,13 +125,13 @@ class TFLRClassifier(object):
         self._build_graph()
         self._init_session()
         self.saver.restore(self.session, '{}/model'.format(chkpt_dir))
-    
+
     def decision_function(self, X):
         """
             Decision function
         """
         return self.session.run(self.logits, feed_dict=self._make_feed_dict(X, None))
-    
+
     def predict_proba(self, X):
         """
             Predict probabilities
@@ -140,7 +141,7 @@ class TFLRClassifier(object):
         probs_negative = 1 - probs_positive
         probs = np.vstack((probs_negative.T, probs_positive.T))
         return probs.T
-    
+
     def predict(self, X):
         """
             Predict
@@ -148,16 +149,16 @@ class TFLRClassifier(object):
         logits = self.decision_function(X)
         predictions = (logits > 0).astype(int)
         return predictions
-        
+
     def fit(self, X_train, y_train):
         """
             Fit model
         """
         if self.feature_num == None:
             self.feature_num = X_train.shape[1]
-        
+
         assert self.feature_num == X_train.shape[1], 'Mismatched: feature_num'
-        
+
         # clear output dirs
         if os.path.exists(self.log_dir):
             shutil.rmtree(self.log_dir)
@@ -165,10 +166,10 @@ class TFLRClassifier(object):
             shutil.rmtree(self.chkpt_dir)
         if not os.path.isdir(self.chkpt_dir):
             os.makedirs(self.chkpt_dir)
-        
+
         self._build_graph()
         self._init_session()
-        
+
         sess = self.session
 
         for epoch in range(self.epoch_num):
@@ -193,13 +194,13 @@ class TFLRClassifier(object):
             if cur_loss < best_loss:
                 best_loss = cur_loss
                 self.saver.save(sess, '{}/model'.format(self.chkpt_dir))
-    
+
     def _build_graph(self):
         """
             Build graph
         """
         assert self.feature_num is not None, 'Null: feature_num'
-        
+
         self.graph = tf.Graph()
         with self.graph.as_default():
             self._construct_placeholders()
@@ -215,10 +216,10 @@ class TFLRClassifier(object):
 
             # training optimizer
             self.train_op = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)
-                          
+
             # saver
             self.saver = tf.train.Saver()
-            
+
             # initializer
             self.init_var_op = tf.global_variables_initializer()
 
@@ -227,7 +228,7 @@ class TFLRClassifier(object):
             self.summary_op = tf.summary.merge_all()
 
         return self.saver, self.logits, self.loss, self.train_op, self.summary_op
-    
+
     def _init_session(self):
         """
             Init session
@@ -251,17 +252,17 @@ class TFLRClassifier(object):
                 self.X_values = tf.placeholder(shape=[None], dtype=tf.float32, name='X_values')
                 self.X_shape = tf.placeholder(shape=[2], dtype=tf.int64, name='X_shape')
             self.X = tf.SparseTensor(self.X_indices, self.X_values, self.X_shape)
-            
+
         self.y = tf.placeholder(shape=[None, 1],
             dtype=tf.float32, name='y')
-    
+
     def _construct_weights(self):
         """
             Construct weights
         """
         self.weights = []
         self.biases = []
-        
+
         for i in range(1):
             weight_key = "w_{}_{}".format(i, i+1)
             bias_key = "b_{}".format(i)
@@ -269,30 +270,30 @@ class TFLRClassifier(object):
                 name=weight_key, shape=[self.feature_num, 1],
                 initializer=tf.contrib.layers.xavier_initializer(
                     seed=self.random_seed)))
-            
+
             self.biases.append(tf.get_variable(
                 name=bias_key, shape=[1],
                 initializer=tf.truncated_normal_initializer(
                     stddev=0.001, seed=self.random_seed)))
-            
+
             # statistics
             tf.summary.histogram(weight_key, self.weights[-1])
             tf.summary.histogram(bias_key, self.biases[-1])
-            
+
     def _forward_pass(self):
         """
             Forward pass
         """
         h = self.X
-        
+
         for i, (w, b) in enumerate(zip(self.weights, self.biases)):
             h = self._matmul_op(h, w, self.input_type) + b
-            
+
             if i != len(self.weights) - 1:
                 h = tf.nn.sigmoid(h)
 
         return h
-    
+
     def _matmul_op(self, a, b, input_type='dense'):
         """
             Wrapper of matmul
@@ -308,12 +309,12 @@ class TFLRClassifier(object):
             Make batch
         """
         assert X.shape[0] == y.shape[0], 'Mismatched: dim'
-        
+
         l = X.shape[0]
         for ndx in range(0, l, n):
             upper_ndx = min(ndx + n, l)
             yield (X[ndx:upper_ndx], y[ndx:upper_ndx])
-            
+
     def _make_feed_dict(self, X, y):
         """
             Make feed dict

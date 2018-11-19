@@ -23,7 +23,6 @@ from scipy import sparse
 class TFLRClassifier(object):
     """
         Logistic Regressor
-        Compatible with sklearn APIs: X is dense matrix or scipy.sparse.csr_matrix
     """
     def __init__(self, feature_num=None, l2_weight=0.01, batch_size=-1, input_type='dense',
         learning_rate=1e-2, epoch_num=10, random_seed=None, session_config=None,
@@ -193,7 +192,7 @@ class TFLRClassifier(object):
                         epoch, global_step, cur_loss))
             if cur_loss < best_loss:
                 best_loss = cur_loss
-                self.saver.save(sess, '{}/model'.format(self.chkpt_dir))
+        self.saver.save(sess, '{}/model'.format(self.chkpt_dir))
 
     def _build_graph(self):
         """

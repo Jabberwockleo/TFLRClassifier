@@ -8,7 +8,7 @@
 
 """
 File: utils.py
-Author: leowan
+Author: Wan Li (leowan)
 Date: 2018/11/18 13:51:55
 """
 

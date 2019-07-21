@@ -8,7 +8,7 @@
 
 """
 File: tflrclassifier.py
-Author: leowan(leowan)
+Author: Wan Li (leowan)
 Date: 2018/11/16 16:14:09
 """
 
